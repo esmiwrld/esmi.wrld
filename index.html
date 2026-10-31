@@ -42,15 +42,18 @@
   #gate-overlay.hide { opacity: 0; pointer-events: none; }
 
   .gate-text {
-    font-family: var(--font-display); font-size: 2rem; font-weight: 800;
-    color: var(--fg); letter-spacing: 8px; text-transform: uppercase;
-    animation: pulseGate 2s infinite;
+    font-family: var(--font-display); font-size: clamp(1.5rem, 4vw, 2.2rem); font-weight: 800;
+    color: #ffffff;
+    background-color: #1852b3; /* Blue highlight from reference */
+    padding: 8px 20px;
+    letter-spacing: 4px; text-transform: uppercase;
+    display: inline-block;
   }
+  
   .gate-sub {
-    font-family: var(--font-mono); font-size: 10px; color: var(--dim);
-    margin-top: 15px; letter-spacing: 4px; text-transform: uppercase;
+    font-family: var(--font-mono); font-size: 10px; color: #a0a0a0;
+    margin-top: 18px; letter-spacing: 6px; text-transform: uppercase;
   }
-  @keyframes pulseGate { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; text-shadow: 0 0 20px rgba(255,255,255,0.5); } }
 
   /* ============ BACKGROUND LAYERS ============ */
   .bg-main {
@@ -376,9 +379,7 @@
     background: #000; border: 2px solid var(--border);
     object-fit: cover; transition: border-color 0.3s;
   }
-  .discord-container:hover .discord-icon {
-    border-color: var(--fg);
-  }
+  .discord-container:hover .discord-icon { border-color: var(--fg); }
   .discord-name {
     font-family: var(--font-display); font-size: 2.2rem;
     font-weight: 800; text-transform: uppercase; color: #fff;
@@ -407,7 +408,7 @@
 <!-- TAP TO SEE GATE -->
 <div id="gate-overlay">
   <div class="gate-text">TAP TO SEE</div>
-  <div class="gate-sub">ESMIRING WRLD</div>
+  <div class="gate-sub">esmi wrld</div>
 </div>
 
 <div class="bg-main"></div>
@@ -440,7 +441,7 @@
         <a href="https://discord.gg/tDyC8S3J56" target="_blank"><span>M</span></a>
         <a href="https://discord.gg/tDyC8S3J56" target="_blank"><span>I</span></a>
       </h1>
-      <div class="hero-sub">EMSIMIRING WRLD</div>
+      <div class="hero-sub">esmi wrld</div>
     </div>
   </section>
 
@@ -602,8 +603,6 @@
     card.target = "_blank";
     card.setAttribute('data-id', member.id);
     
-    // If it's SEKO, we add a specific class to handle the red text default
-    // Though CSS `data-id` targeting handles it, adding class ensures it.
     card.innerHTML = `
       <div class="dossier-bg" style="background-image: url('${member.fallbackBg}'), url('bg.gif')"></div>
       <div class="dossier-overlay"></div>
@@ -736,7 +735,6 @@
     hudDots.forEach(d => d.classList.remove('active'));
     if(hudDots[currentIndex]) hudDots[currentIndex].classList.add('active');
 
-    // Show background blur ONLY on Members page (index 2)
     if (index === 2) {
       document.body.classList.add('show-member-bg');
     } else {
