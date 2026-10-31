@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #0a0a0a;
+    --bg: #000000;
     --panel: rgba(20, 20, 20, 0.85);
     --fg: #ffffff;
     --accent: #ff1a1a;
@@ -33,7 +33,7 @@
     overflow: hidden;
   }
 
-  /* ============ TAP TO SEE GATE ============ */
+  /* ============ TAP TO VIEW GATE (UPDATED) ============ */
   #gate-overlay {
     position: fixed; inset: 0; background: #000; z-index: 10000;
     display: flex; flex-direction: column; justify-content: center; align-items: center;
@@ -42,45 +42,46 @@
   #gate-overlay.hide { opacity: 0; pointer-events: none; }
 
   .gate-text {
-    font-family: var(--font-display); font-size: clamp(1.5rem, 4vw, 2.2rem); font-weight: 800;
+    font-family: var(--font-display); font-size: clamp(2rem, 5vw, 3rem); font-weight: 800;
     color: #ffffff;
-    background-color: #1852b3; /* Blue highlight from reference */
-    padding: 8px 20px;
-    letter-spacing: 4px; text-transform: uppercase;
-    display: inline-block;
+    letter-spacing: 8px; text-transform: uppercase;
+    animation: pulseGate 2s infinite;
+    /* Removed blue background and padding */
   }
   
   .gate-sub {
-    font-family: var(--font-mono); font-size: 10px; color: #a0a0a0;
-    margin-top: 18px; letter-spacing: 6px; text-transform: uppercase;
+    font-family: var(--font-mono); font-size: 10px; color: var(--dim);
+    margin-top: 15px; letter-spacing: 4px; text-transform: uppercase;
   }
+  @keyframes pulseGate { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; text-shadow: 0 0 20px rgba(255,255,255,0.5); } }
 
-  /* ============ BACKGROUND LAYERS ============ */
+  /* ============ BACKGROUND LAYERS (FIXED) ============ */
   .bg-main {
-    position: fixed; inset: -50px;
+    position: fixed; inset: 0;
     background-image: url('bg.gif'); background-size: cover; background-position: center;
-    z-index: -6; filter: blur(25px) brightness(0.15) grayscale(0.6);
+    z-index: 0; /* Fixed stacking */
+    filter: blur(15px) brightness(0.4) grayscale(0.5); /* Brightened so it shows */
     animation: slowDrift 40s linear infinite;
   }
   @keyframes slowDrift { 0% { transform: scale(1) translate(0,0); } 100% { transform: scale(1.1) translate(-2%, -2%); } }
 
   .bg-members-gif {
-    position: fixed; inset: -50px;
+    position: fixed; inset: 0;
     background-image: url('bg.gif'); background-size: cover; background-position: center;
-    z-index: -5; filter: blur(30px) brightness(0.2) grayscale(0.5);
+    z-index: 1; filter: blur(30px) brightness(0.3) grayscale(0.5);
     opacity: 0; transition: opacity 1s var(--smooth), background-image 1s ease;
   }
   body.show-member-bg .bg-members-gif { opacity: 1; }
 
   .bg-scanlines {
-    position: fixed; inset: 0; z-index: -4; pointer-events: none;
+    position: fixed; inset: 0; z-index: 2; pointer-events: none;
     background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.4));
     background-size: 100% 4px;
     opacity: 0.3;
   }
 
   .bg-vignette {
-    position: fixed; inset: 0; z-index: -3; pointer-events: none;
+    position: fixed; inset: 0; z-index: 3; pointer-events: none;
     background: radial-gradient(circle at center, transparent 20%, #000 110%);
   }
 
@@ -126,6 +127,8 @@
   /* ============ SCROLL ENGINE ============ */
   .scroll-container {
     height: 100vh; width: 100vw;
+    position: relative;
+    z-index: 10; /* Fixed stacking so content is above bg */
     transition: transform 1s var(--smooth);
     will-change: transform;
   }
@@ -405,10 +408,10 @@
 
 <audio id="bg-music" src="bgm.mp3" loop></audio>
 
-<!-- TAP TO SEE GATE -->
+<!-- TAP TO VIEW GATE -->
 <div id="gate-overlay">
-  <div class="gate-text">TAP TO SEE</div>
-  <div class="gate-sub">esmi wrld</div>
+  <div class="gate-text">TAP TO VIEW</div>
+  <div class="gate-sub">ESMI WRLD</div>
 </div>
 
 <div class="bg-main"></div>
@@ -530,7 +533,7 @@
   bgMusic.addEventListener('pause', () => updateAudioUI(false));
 
   // ==========================================
-  // TAP TO SEE GATE -> INTRO SEQUENCE
+  // TAP TO VIEW GATE -> INTRO SEQUENCE
   // ==========================================
   const gateOverlay = document.getElementById('gate-overlay');
   const introOverlay = document.getElementById('intro-overlay');
