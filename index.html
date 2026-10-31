@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ESMI // CLASSIFIED</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #000000;
+    --panel: rgba(20, 20, 20, 0.85);
+    --fg: #ffffff;
+    --accent: #ff1a1a;
+    --accent-blue: #4a6bff;
+    --accent-white: #ffffff;
+    --dim: rgba(255, 255, 255, 0.5);
+    --border: rgba(255, 255, 255, 0.15);
+    --font-display: 'Syne', sans-serif;
+    --font-mono: 'Space Mono', monospace;
+    --smooth: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  
+  body {
+    background-color: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-mono);
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+  }
+
+  /* ============ TAP TO VIEW GATE (UPDATED) ============ */
+  #gate-overlay {
+    position: fixed; inset: 0; background: #000; z-index: 10000;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    cursor: pointer; transition: opacity 1s var(--smooth);
+  }
+  #gate-overlay.hide { opacity: 0; pointer-events: none; }
+
+  .gate-text {
+    font-family: var(--font-display); font-size: clamp(2rem, 5vw, 3rem); font-weight: 800;
+    color: #ffffff;
+    letter-spacing: 8px; text-transform: uppercase;
+    animation: pulseGate 2s infinite;
+    /* Removed blue background and padding */
+  }
+  
+  .gate-sub {
+    font-family: var(--font-mono); font-size: 10px; color: var(--dim);
+    margin-top: 15px; letter-spacing: 4px; text-transform: uppercase;
+  }
+  @keyframes pulseGate { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; text-shadow: 0 0 20px rgba(255,255,255,0.5); } }
+
+  /* ============ BACKGROUND LAYERS (FIXED) ============ */
+  .bg-main {
+    position: fixed; inset: 0;
+    background-image: url('bg.gif'); background-size: cover; background-position: center;
+    z-index: 0; /* Fixed stacking */
+    filter: blur(15px) brightness(0.4) grayscale(0.5); /* Brightened so it shows */
+    animation: slowDrift 40s linear infinite;
+  }
+  @keyframes slowDrift { 0% { transform: scale(1) translate(0,0); } 100% { transform: scale(1.1) translate(-2%, -2%); } }
+
+  .bg-members-gif {
+    position: fixed; inset: 0;
+    background-image: url('bg.gif'); background-size: cover; background-position: center;
+    z-index: 1; filter: blur(30px) brightness(0.3) grayscale(0.5);
+    opacity: 0; transition: opacity 1s var(--smooth), background-image 1s ease;
+  }
+  body.show-member-bg .bg-members-gif { opacity: 1; }
+
+  .bg-scanlines {
+    position: fixed; inset: 0; z-index: 2; pointer-events: none;
+    background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.4));
+    background-size: 100% 4px;
+    opacity: 0.3;
+  }
+
+  .bg-vignette {
+    position: fixed; inset: 0; z-index: 3; pointer-events: none;
+    background: radial-gradient(circle at center, transparent 20%, #000 110%);
+  }
+
+  /* ============ SIDE HUD NAVIGATION (DOTS) ============ */
+  .side-hud {
+    position: fixed;
+    left: 40px; top: 50%; transform: translateY(-50%);
+    display: flex; flex-direction: column; gap: 25px;
+    z-index: 100; opacity: 0; transition: opacity 1s var(--smooth);
+  }
+  .side-hud.show { opacity: 1; }
+
+  .hud-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--dim); cursor: pointer; transition: all 0.3s;
+    position: relative;
+  }
+  .hud-dot:hover { background: var(--fg); }
+  .hud-dot.active { 
+    background: var(--accent); 
+    transform: scale(1.6); 
+    box-shadow: 0 0 12px var(--accent); 
+  }
+
+  /* ============ CINEMATIC INTRO ============ */
+  #intro-overlay {
+    position: fixed; inset: 0; background: #000; z-index: 9999;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    opacity: 0; pointer-events: none;
+    transition: opacity 1s var(--smooth), filter 1s var(--smooth);
+  }
+  #intro-overlay.show { opacity: 1; pointer-events: auto; }
+  #intro-overlay.hide { opacity: 0; filter: blur(20px); pointer-events: none; }
+
+  .intro-text {
+    font-family: var(--font-display); font-size: clamp(3rem, 8vw, 6rem);
+    font-weight: 800; text-transform: uppercase; letter-spacing: -1px;
+    text-align: center; opacity: 0; transform: scale(0.95);
+    transition: opacity 0.3s var(--smooth), transform 0.3s var(--smooth);
+    position: absolute; color: #ffffff;
+  }
+
+  /* ============ SCROLL ENGINE ============ */
+  .scroll-container {
+    height: 100vh; width: 100vw;
+    position: relative;
+    z-index: 10; /* Fixed stacking so content is above bg */
+    transition: transform 1s var(--smooth);
+    will-change: transform;
+  }
+
+  .page-section {
+    height: 100vh; width: 100vw;
+    position: relative; display: flex; flex-direction: column;
+    justify-content: center; align-items: center; overflow: hidden;
+  }
+
+  /* ============ PAGE 1: HERO ============ */
+  .hero-container {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .hero-title {
+    font-family: var(--font-display); font-size: clamp(6rem, 18vw, 15rem);
+    font-weight: 800; letter-spacing: -0.06em; line-height: 0.8;
+    text-align: center; position: relative; text-transform: uppercase;
+    display: flex; gap: 10px;
+  }
+  .hero-title a { text-decoration: none; }
+  .hero-title span {
+    display: inline-block; color: transparent;
+    -webkit-text-stroke: 2px var(--fg);
+    transition: all 0.4s var(--smooth);
+    cursor: pointer;
+  }
+  .hero-title span:hover {
+    color: var(--fg); 
+    -webkit-text-stroke: 0px; 
+    text-shadow: 0 0 40px rgba(255,255,255,0.6);
+    transform: translateY(-10px);
+  }
+  .hero-sub {
+    font-family: var(--font-mono); font-size: clamp(10px, 1.5vw, 14px); letter-spacing: 8px;
+    color: var(--accent); margin-top: 40px; text-transform: uppercase;
+    border-bottom: 1px solid var(--accent); padding-bottom: 8px;
+    opacity: 0; animation: fadeIn 1s 2s forwards;
+  }
+  @keyframes fadeIn { to { opacity: 1; } }
+
+  /* ============ PAGE 2: LOGO ============ */
+  .logo-wrapper {
+    width: 80%; max-width: 800px; z-index: 10; display: flex; justify-content: center; align-items: center;
+  }
+  .logo-wrapper img {
+    width: 100%; height: auto;
+    filter: drop-shadow(0 0 40px rgba(255, 26, 26, 0.2));
+    animation: floatLogo 6s ease-in-out infinite;
+  }
+  @keyframes floatLogo {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-15px); }
+  }
+
+  /* ============ PAGE 3: LANDSCAPE MEMBERS ============ */
+  .members-container {
+    display: flex; flex-direction: column; align-items: center; width: 100%;
+  }
+  
+  .members-title {
+    font-family: var(--font-display); font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 800;
+    text-transform: uppercase; letter-spacing: 6px; margin-bottom: 30px;
+    text-shadow: 0 0 30px rgba(255,255,255,0.2); z-index: 10; text-align: center;
+  }
+
+  .marquee-container {
+    width: 100vw; overflow: hidden; position: relative; z-index: 10; padding: 20px 0; display: flex; align-items: center;
+  }
+  .marquee-track {
+    display: flex; gap: 25px; width: max-content; animation: slideTrack 50s linear infinite;
+  }
+  .marquee-container:hover .marquee-track { animation-play-state: paused; }
+  @keyframes slideTrack { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+
+  .dossier-card {
+    width: 380px; height: 140px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: rgba(20, 20, 20, 0.85);
+    backdrop-filter: blur(20px);
+    position: relative; overflow: hidden;
+    display: flex; flex-direction: row; align-items: center;
+    padding: 15px; gap: 15px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.9);
+    transition: transform 0.3s var(--smooth), border-color 0.3s, box-shadow 0.3s;
+    flex-shrink: 0; text-decoration: none;
+  }
+  .dossier-card:hover { border-color: var(--accent); transform: translateY(-5px); }
+
+  .dossier-bg {
+    position: absolute; inset: 0; background-size: cover; background-position: center;
+    opacity: 0.3; filter: grayscale(1) contrast(1.2); z-index: 1;
+    transition: opacity 0.5s, filter 0.5s;
+  }
+  .dossier-card:hover .dossier-bg { opacity: 0.5; filter: grayscale(0.2) contrast(1.2); }
+  
+  .dossier-overlay {
+    position: absolute; inset: 0; z-index: 2;
+    background: linear-gradient(to right, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.6) 100%);
+  }
+
+  .dossier-avatar-wrap {
+    position: relative; width: 60px; height: 60px; z-index: 3;
+    border: 1px solid var(--fg); border-radius: 8px; padding: 2px; background: #000; flex-shrink: 0;
+    transition: all 0.3s;
+  }
+  .dossier-avatar { width: 100%; height: 100%; object-fit: cover; border-radius: 6px; transition: transform 0.3s; }
+  
+  .dossier-main { flex: 1; z-index: 3; display: flex; flex-direction: column; justify-content: center; }
+  .dossier-name {
+    font-family: var(--font-display); font-size: 1.8rem;
+    font-weight: 800; text-transform: uppercase; line-height: 1;
+    text-shadow: 0 5px 15px rgba(0,0,0,0.9); margin-bottom: 4px;
+    transition: color 0.3s, text-shadow 0.3s;
+    color: var(--fg); /* Default White */
+  }
+  .dossier-handle { font-family: var(--font-mono); font-size: 10px; color: var(--dim); letter-spacing: 1px; }
+
+  .dossier-info { z-index: 3; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+  .dossier-role { font-family: var(--font-mono); font-size: 8px; color: var(--accent); letter-spacing: 1px; text-align: right; max-width: 90px; line-height: 1.2; transition: color 0.3s;}
+  
+  .status-box {
+    display: flex; align-items: center; gap: 5px; font-family: var(--font-mono); font-size: 8px;
+    border: 1px solid var(--border); border-radius: 4px; padding: 3px 8px; background: rgba(0,0,0,0.8);
+    letter-spacing: 1px;
+  }
+  .status-dot { width: 5px; height: 5px; border-radius: 50%; background: #7d7d7d; }
+  .status-box.online .status-dot { background: #23a55a; box-shadow: 0 0 8px #23a55a; }
+  .status-box.idle .status-dot { background: #f0b232; box-shadow: 0 0 8px #f0b232; }
+  .status-box.dnd .status-dot { background: #f23f43; box-shadow: 0 0 8px #f23f43; }
+
+  /* TAP TO VIEW HINT */
+  .view-hint {
+    position: absolute;
+    bottom: 10px;
+    right: 15px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--accent);
+    letter-spacing: 1px;
+    opacity: 0;
+    transform: translateY(5px);
+    transition: opacity 0.3s, transform 0.3s;
+    z-index: 4;
+  }
+  .dossier-card:hover .view-hint {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* =========================================
+     SPECIFIC MEMBER STYLES
+     ========================================= */
+  
+  /* SEKO - Permanent Red Name */
+  .dossier-card[data-id="1257391429165252759"] .dossier-name {
+    color: var(--accent);
+    text-shadow: 0 0 15px rgba(255, 26, 26, 0.6);
+  }
+
+  /* POWNZI (AKUMA) HOVER */
+  .dossier-card[data-id="1320410416333066283"]:hover { border-color: var(--accent-blue); box-shadow: 0 10px 50px rgba(74, 107, 255, 0.3); }
+  .dossier-card[data-id="1320410416333066283"]:hover .dossier-bg { background-image: url('akuma_raging.gif') !important; opacity: 0.7; filter: grayscale(0) contrast(1.2); }
+  .dossier-card[data-id="1320410416333066283"]:hover .dossier-avatar-wrap { border-color: var(--accent-blue); box-shadow: 0 0 15px var(--accent-blue); transform: scale(1.05); }
+  .dossier-card[data-id="1320410416333066283"]:hover .dossier-name { color: var(--accent-blue); text-shadow: 0 0 20px rgba(74, 107, 255, 0.8); }
+  .dossier-card[data-id="1320410416333066283"]:hover .dossier-role { color: var(--accent-blue); }
+
+  /* SEKO HOVER */
+  .dossier-card[data-id="1257391429165252759"]:hover { border-color: var(--accent-white); box-shadow: 0 10px 50px rgba(255, 255, 255, 0.2); }
+  .dossier-card[data-id="1257391429165252759"]:hover .dossier-bg { background-image: url('seko.gif') !important; opacity: 0.8; filter: grayscale(1) contrast(1.5); }
+  .dossier-card[data-id="1257391429165252759"]:hover .dossier-avatar-wrap { border-color: var(--accent-white); box-shadow: 0 0 15px var(--accent-white); transform: scale(1.05); }
+  .dossier-card[data-id="1257391429165252759"]:hover .dossier-name { color: var(--accent-white); text-shadow: 0 0 20px rgba(255, 255, 255, 0.8); }
+  .dossier-card[data-id="1257391429165252759"]:hover .dossier-role { color: var(--accent-white); }
+
+  /* DEL HOVER */
+  .dossier-card[data-id="899669803910959144"]:hover { border-color: var(--accent); box-shadow: 0 10px 50px rgba(255, 26, 26, 0.3); }
+  .dossier-card[data-id="899669803910959144"]:hover .dossier-bg { background-image: url('del.gif') !important; opacity: 0.8; filter: grayscale(0.5) contrast(1.2); }
+  .dossier-card[data-id="899669803910959144"]:hover .dossier-avatar-wrap { border-color: var(--accent); box-shadow: 0 0 15px var(--accent); transform: scale(1.05); }
+  .dossier-card[data-id="899669803910959144"]:hover .dossier-name { color: var(--accent); text-shadow: 0 0 20px rgba(255, 26, 26, 0.8); }
+  .dossier-card[data-id="899669803910959144"]:hover .dossier-role { color: var(--accent); }
+
+  /* FLOCK HOVER */
+  .dossier-card[data-id="1448214390120644681"]:hover { border-color: var(--accent-white); box-shadow: 0 10px 50px rgba(255, 255, 255, 0.3); }
+  .dossier-card[data-id="1448214390120644681"]:hover .dossier-bg { background-image: url('flock.gif') !important; opacity: 0.8; filter: grayscale(1) contrast(1.5); }
+  .dossier-card[data-id="1448214390120644681"]:hover .dossier-avatar-wrap { border-color: var(--accent-white); box-shadow: 0 0 15px var(--accent-white); transform: scale(1.05); }
+  .dossier-card[data-id="1448214390120644681"]:hover .dossier-name { color: var(--accent-white); text-shadow: 0 0 20px rgba(255, 255, 255, 0.8); }
+  .dossier-card[data-id="1448214390120644681"]:hover .dossier-role { color: var(--accent-white); }
+
+  /* KYOMEI HOVER */
+  .dossier-card[data-id="793236689644552193"]:hover { border-color: var(--accent); box-shadow: 0 10px 50px rgba(255, 26, 26, 0.4); }
+  .dossier-card[data-id="793236689644552193"]:hover .dossier-bg { background-image: url('kyomei.gif') !important; opacity: 0.85; filter: grayscale(0.2) contrast(1.3); }
+  .dossier-card[data-id="793236689644552193"]:hover .dossier-avatar-wrap { border-color: var(--accent-white); box-shadow: 0 0 15px var(--accent); transform: scale(1.05); }
+  .dossier-card[data-id="793236689644552193"]:hover .dossier-name { color: var(--accent-white); text-shadow: 0 0 20px rgba(255, 26, 26, 0.9); }
+  .dossier-card[data-id="793236689644552193"]:hover .dossier-role { color: var(--accent); }
+
+  /* WEZ HOVER */
+  .dossier-card[data-id="1336380647253475341"]:hover { border-color: var(--accent-white); box-shadow: 0 10px 50px rgba(255, 255, 255, 0.3); }
+  .dossier-card[data-id="1336380647253475341"]:hover .dossier-bg { background-image: url('wez.gif') !important; opacity: 0.85; filter: grayscale(1) contrast(1.4); }
+  .dossier-card[data-id="1336380647253475341"]:hover .dossier-avatar-wrap { border-color: var(--accent-white); box-shadow: 0 0 15px var(--accent-white); transform: scale(1.05); }
+  .dossier-card[data-id="1336380647253475341"]:hover .dossier-name { color: var(--accent-white); text-shadow: 0 0 20px rgba(255, 255, 255, 0.8); }
+  .dossier-card[data-id="1336380647253475341"]:hover .dossier-role { color: var(--accent-white); }
+
+  /* DEZU HOVER */
+  .dossier-card[data-id="762611107121856523"]:hover { border-color: var(--accent-white); box-shadow: 0 10px 50px rgba(255, 255, 255, 0.2); }
+  .dossier-card[data-id="762611107121856523"]:hover .dossier-bg { background-image: url('dezu.gif') !important; opacity: 0.8; filter: grayscale(1) contrast(1.5); }
+  .dossier-card[data-id="762611107121856523"]:hover .dossier-avatar-wrap { border-color: var(--accent-white); box-shadow: 0 0 15px var(--accent-white); transform: scale(1.05); }
+  .dossier-card[data-id="762611107121856523"]:hover .dossier-name { color: var(--accent-white); text-shadow: 0 0 20px rgba(255, 255, 255, 0.8); }
+  .dossier-card[data-id="762611107121856523"]:hover .dossier-role { color: var(--accent-white); }
+
+  /* BACCARAT HOVER */
+  .dossier-card[data-id="381102644753727499"]:hover { border-color: var(--accent); box-shadow: 0 10px 50px rgba(255, 26, 26, 0.4); }
+  .dossier-card[data-id="381102644753727499"]:hover .dossier-bg { background-image: url('baccarat.gif') !important; opacity: 0.85; filter: grayscale(0) contrast(1.2); }
+  .dossier-card[data-id="381102644753727499"]:hover .dossier-avatar-wrap { border-color: var(--accent-white); box-shadow: 0 0 15px var(--accent); transform: scale(1.05); }
+  .dossier-card[data-id="381102644753727499"]:hover .dossier-name { color: var(--accent-white); text-shadow: 0 0 20px rgba(255, 26, 26, 0.9); }
+  .dossier-card[data-id="381102644753727499"]:hover .dossier-role { color: var(--accent); }
+
+  /* ============ PAGE 4: AUDIO ============ */
+  .audio-container {
+    display: flex; align-items: center; gap: 50px; z-index: 10;
+    background: var(--panel); padding: 40px; border-radius: 16px; border: 1px solid var(--border);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+  }
+  .album-wrapper { position: relative; width: 220px; height: 220px; }
+  .album-cover { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); position: relative; z-index: 2; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+  .vinyl-record { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 200px; height: 200px; background: repeating-radial-gradient(#111 0%, #222 5%, #111 10%); border-radius: 50%; z-index: 1; animation: spin 4s linear infinite; animation-play-state: paused; }
+  .vinyl-record::after { content: ""; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 40px; height: 40px; background: var(--bg); border-radius: 50%; border: 1px solid #333; }
+  @keyframes spin { 100% { transform: translate(-50%, -50%) rotate(360deg); } }
+  .audio-info { display: flex; flex-direction: column; gap: 10px; }
+  .audio-sub { font-family: var(--font-mono); font-size: 10px; color: var(--accent); letter-spacing: 3px; text-transform: uppercase; }
+  .audio-title { font-family: var(--font-display); font-size: 2.5rem; font-weight: 800; text-transform: uppercase; line-height: 1; }
+  .play-btn { background: transparent; border: 1px solid var(--fg); border-radius: 50%; width: 50px; height: 50px; display: flex; justify-content: center; align-items: center; cursor: pointer; transition: all 0.3s; margin-top: 15px; }
+  .play-btn:hover { background: var(--fg); color: var(--bg); transform: scale(1.05); }
+  .play-btn svg { width: 18px; height: 18px; fill: currentColor; }
+
+  /* ============ PAGE 5: DISCORD SERVER ============ */
+  .discord-container {
+    display: flex; flex-direction: column; align-items: center; gap: 20px;
+    background: var(--panel); padding: 50px 80px; border-radius: 20px;
+    border: 1px solid var(--border); cursor: pointer;
+    transition: all 0.4s var(--smooth); text-decoration: none;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+  }
+  .discord-container:hover {
+    border-color: var(--accent-blue);
+    box-shadow: 0 10px 60px rgba(74, 107, 255, 0.3);
+    transform: translateY(-8px);
+  }
+  .discord-icon {
+    width: 120px; height: 120px; border-radius: 50%;
+    background: #000; border: 2px solid var(--border);
+    object-fit: cover; transition: border-color 0.3s;
+  }
+  .discord-container:hover .discord-icon { border-color: var(--fg); }
+  .discord-name {
+    font-family: var(--font-display); font-size: 2.2rem;
+    font-weight: 800; text-transform: uppercase; color: #fff;
+    text-align: center; letter-spacing: 2px;
+  }
+  .discord-stats {
+    font-family: var(--font-mono); font-size: 12px;
+    color: var(--dim); display: flex; gap: 20px; letter-spacing: 1px;
+  }
+  .discord-stats span { display: flex; align-items: center; gap: 6px; }
+  .discord-stats .dot { width: 8px; height: 8px; border-radius: 50%; background: #23a55a; box-shadow: 0 0 8px #23a55a; }
+  .discord-stats .dot.off { background: #7d7d7d; box-shadow: none; }
+  .discord-cta {
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 4px;
+    color: var(--accent); margin-top: 10px; opacity: 0.7;
+    transition: opacity 0.3s;
+  }
+  .discord-container:hover .discord-cta { opacity: 1; }
+
+</style>
+</head>
+<body>
+
+<audio id="bg-music" src="bgm.mp3" loop></audio>
+
+<!-- TAP TO VIEW GATE -->
+<div id="gate-overlay">
+  <div class="gate-text">TAP TO VIEW</div>
+  <div class="gate-sub">ESMI WRLD</div>
+</div>
+
+<div class="bg-main"></div>
+<div class="bg-members-gif" id="page-bg-gif"></div>
+<div class="bg-scanlines"></div>
+<div class="bg-vignette"></div>
+
+<!-- SIDE HUD (5 DOTS) -->
+<div class="side-hud" id="side-hud">
+  <div class="hud-dot active" onclick="goToSection(0)"></div>
+  <div class="hud-dot" onclick="goToSection(1)"></div>
+  <div class="hud-dot" onclick="goToSection(2)"></div>
+  <div class="hud-dot" onclick="goToSection(3)"></div>
+  <div class="hud-dot" onclick="goToSection(4)"></div>
+</div>
+
+<!-- INTRO SEQUENCE -->
+<div id="intro-overlay">
+  <div class="intro-text" id="intro-text"></div>
+</div>
+
+<div class="scroll-container" id="scroll-container">
+  
+  <!-- PAGE 1: HERO -->
+  <section class="page-section active" id="page-hero">
+    <div class="hero-container">
+      <h1 class="hero-title">
+        <a href="https://discord.gg/tDyC8S3J56" target="_blank"><span>E</span></a>
+        <a href="https://discord.gg/tDyC8S3J56" target="_blank"><span>S</span></a>
+        <a href="https://discord.gg/tDyC8S3J56" target="_blank"><span>M</span></a>
+        <a href="https://discord.gg/tDyC8S3J56" target="_blank"><span>I</span></a>
+      </h1>
+      <div class="hero-sub">esmi wrld</div>
+    </div>
+  </section>
+
+  <!-- PAGE 2: LOGO -->
+  <section class="page-section" id="page-logo">
+    <div class="logo-wrapper">
+      <img src="logo.png" alt="ESMI Logo">
+    </div>
+  </section>
+
+  <!-- PAGE 3: LANDSCAPE MEMBERS -->
+  <section class="page-section" id="page-members">
+    <div class="members-container">
+      <div class="members-title">HALL OF FAME</div>
+      <div class="marquee-container" id="marquee-container">
+        <div class="marquee-track" id="marquee-track">
+          <!-- JS populates cards here -->
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PAGE 4: AUDIO -->
+  <section class="page-section" id="page-audio">
+    <div class="audio-container">
+      <div class="album-wrapper">
+        <div class="vinyl-record" id="vinyl"></div>
+        <img src="music.png" alt="Album Cover" class="album-cover">
+      </div>
+      <div class="audio-info">
+        <div class="audio-sub">EMSI WRLD</div>
+        <div class="audio-title">ESMI<br>TRACK</div>
+        <button class="play-btn" id="play-toggle">
+          <svg id="icon-play" viewBox="0 0 24 24" style="margin-left:2px;"><path d="M8 5v14l11-7z"/></svg>
+          <svg id="icon-pause" viewBox="0 0 24 24" style="display:none;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- PAGE 5: DISCORD SERVER -->
+  <section class="page-section" id="page-discord">
+    <a href="https://discord.gg/tDyC8S3J56" target="_blank" class="discord-container">
+      <img src="https://cdn.discordapp.com/embed/avatars/0.png" id="server-icon" alt="Server Icon" class="discord-icon">
+      <div class="discord-name" id="server-name">LOADING...</div>
+      <div class="discord-stats">
+        <span><div class="dot"></div> <span id="server-online">0</span> ONLINE</span>
+        <span><div class="dot off"></div> <span id="server-members">0</span> MEMBERS</span>
+      </div>
+      <div class="discord-cta">JOIN THE SERVER ↗</div>
+    </a>
+  </section>
+
+</div>
+
+<script>
+  // ==========================================
+  // AUDIO LOGIC
+  // ==========================================
+  const bgMusic = document.getElementById('bg-music');
+  const playToggle = document.getElementById('play-toggle');
+  const vinyl = document.getElementById('vinyl');
+  const iconPlay = document.getElementById('icon-play');
+  const iconPause = document.getElementById('icon-pause');
+  bgMusic.volume = 0.4;
+
+  function updateAudioUI(isPlaying) {
+    if (isPlaying) {
+      vinyl.style.animationPlayState = 'running';
+      iconPlay.style.display = 'none';
+      iconPause.style.display = 'block';
+    } else {
+      vinyl.style.animationPlayState = 'paused';
+      iconPlay.style.display = 'block';
+      iconPause.style.display = 'none';
+    }
+  }
+
+  playToggle.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (bgMusic.paused) bgMusic.play();
+    else bgMusic.pause();
+  });
+  
+  bgMusic.addEventListener('play', () => updateAudioUI(true));
+  bgMusic.addEventListener('pause', () => updateAudioUI(false));
+
+  // ==========================================
+  // TAP TO VIEW GATE -> INTRO SEQUENCE
+  // ==========================================
+  const gateOverlay = document.getElementById('gate-overlay');
+  const introOverlay = document.getElementById('intro-overlay');
+  const introText = document.getElementById('intro-text');
+  const sideHud = document.getElementById('side-hud');
+
+  const sequence = [
+    { text: "ES", delay: 500 },
+    { text: "MI", delay: 500 },
+    { text: "RING", delay: 700 },
+    { text: "WRLD", delay: 1000 }
+  ];
+  let seqIndex = 0;
+
+  function runIntro() {
+    if (seqIndex >= sequence.length) {
+      introOverlay.classList.add('hide');
+      setTimeout(() => {
+        sideHud.classList.add('show');
+      }, 500);
+      return;
+    }
+
+    const step = sequence[seqIndex];
+    introText.textContent = step.text;
+    
+    introText.style.opacity = '1';
+    introText.style.transform = 'scale(1)';
+
+    setTimeout(() => {
+      introText.style.opacity = '0';
+      introText.style.transform = 'scale(0.95)';
+      setTimeout(() => {
+        seqIndex++;
+        runIntro();
+      }, 300);
+    }, step.delay);
+  }
+
+  gateOverlay.addEventListener('click', () => {
+    bgMusic.play().then(() => updateAudioUI(true)).catch(e => console.log(e));
+    gateOverlay.classList.add('hide');
+    introOverlay.classList.add('show');
+    setTimeout(runIntro, 300);
+  });
+
+  // ==========================================
+  // MEMBER ROSTER DATA
+  // ==========================================
+  const squad = [
+    { id: "1257391429165252759", name: "seko", role: "HEAD", fallbackBg: "1257391429165252759.gif" },
+    { id: "1336380647253475341", name: "wez", role: "SUPERIOR", fallbackBg: "1336380647253475341.gif" },
+    { id: "1320410416333066283", name: "pownzi", role: "AKUMA RAGING DEMON", fallbackBg: "bg.gif" },
+    { id: "899669803910959144", name: "del", role: "SUPERIOR", fallbackBg: "899669803910959144.gif" },
+    { id: "381102644753727499", name: "baccarat", role: "ABOVE ALL", fallbackBg: "381102644753727499.gif" },
+    { id: "762611107121856523", name: "dezu", role: "ABOVE ALL", fallbackBg: "762611107121856523.gif" },
+    { id: "793236689644552193", name: "kyomei", role: "ABOVE ALL", fallbackBg: "793236689644552193.gif" },
+    { id: "1448214390120644681", name: "flock", role: "SUPERIOR", fallbackBg: "1448214390120644681.gif" }
+  ];
+
+  // ==========================================
+  // BUILD LANDSCAPE MARQUEE
+  // ==========================================
+  const track = document.getElementById('marquee-track');
+
+  function createCard(member) {
+    const card = document.createElement('a');
+    card.className = 'dossier-card';
+    card.href = `https://discord.com/users/${member.id}`;
+    card.target = "_blank";
+    card.setAttribute('data-id', member.id);
+    
+    card.innerHTML = `
+      <div class="dossier-bg" style="background-image: url('${member.fallbackBg}'), url('bg.gif')"></div>
+      <div class="dossier-overlay"></div>
+      
+      <div class="dossier-avatar-wrap">
+        <img src="https://cdn.discordapp.com/embed/avatars/0.png" alt="Avatar" class="dossier-avatar avatar-${member.id}">
+      </div>
+      
+      <div class="dossier-main">
+        <div class="dossier-name">${member.name}</div>
+        <div class="dossier-handle handle-${member.id}">@unknown</div>
+      </div>
+      
+      <div class="dossier-info">
+        <div class="dossier-role">${member.role}</div>
+        <div class="status-box offline status-${member.id}">
+          <div class="status-dot"></div>
+          <span class="status-text-${member.id}">OFF</span>
+        </div>
+      </div>
+      
+      <div class="view-hint">TAP TO SEE ↗</div>
+    `;
+    return card;
+  }
+
+  [...squad, ...squad].forEach(member => {
+    track.appendChild(createCard(member));
+  });
+
+  // ==========================================
+  // FETCH MEMBER STATUS (LANYARD)
+  // ==========================================
+  async function fetchMemberData() {
+    for (const member of squad) {
+      try {
+        const res = await fetch(`https://api.lanyard.rest/v1/users/${member.id}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success) {
+            const data = json.data;
+            const user = data.discord_user;
+            const status = data.discord_status || "offline";
+            
+            document.querySelectorAll(`.avatar-${member.id}`).forEach(img => {
+              if (user.avatar) img.src = `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=128`;
+            });
+            document.querySelectorAll(`.handle-${member.id}`).forEach(el => {
+              el.textContent = "@" + user.username;
+            });
+            document.querySelectorAll(`.status-${member.id}`).forEach(box => {
+              box.className = `status-box status-${member.id} ${status}`;
+            });
+            document.querySelectorAll(`.status-text-${member.id}`).forEach(el => {
+              el.textContent = status.toUpperCase();
+            });
+          }
+        } else {
+          throw new Error("Fallback");
+        }
+      } catch (e) {
+        try {
+          const res2 = await fetch(`https://japi.rest/discord/v1/user/${member.id}`);
+          if (res2.ok) {
+            const json2 = await res2.json();
+            const data2 = json2.data;
+            document.querySelectorAll(`.avatar-${member.id}`).forEach(img => {
+              img.src = data2.avatarURL ? data2.avatarURL + "?size=128" : `https://cdn.discordapp.com/embed/avatars/0.png`;
+            });
+            document.querySelectorAll(`.handle-${member.id}`).forEach(el => {
+              el.textContent = "@" + data2.username;
+            });
+          }
+        } catch (err) {}
+      }
+    }
+  }
+  
+  fetchMemberData();
+
+  // ==========================================
+  // FETCH DISCORD SERVER INFO
+  // ==========================================
+  async function fetchDiscordServer() {
+    try {
+      const res = await fetch('https://discord.com/api/v10/invites/tDyC8S3J56?with_counts=true');
+      if (!res.ok) throw new Error('API Error');
+      const data = await res.json();
+      
+      if (data.guild) {
+        document.getElementById('server-name').textContent = data.guild.name;
+        const iconUrl = data.guild.icon 
+          ? `https://cdn.discordapp.com/icons/${data.guild.id}/${data.guild.icon}.png?size=256`
+          : 'https://cdn.discordapp.com/embed/avatars/0.png';
+        document.getElementById('server-icon').src = iconUrl;
+        
+        document.getElementById('server-online').textContent = data.approximate_presence_count || 0;
+        document.getElementById('server-members').textContent = data.approximate_member_count || 0;
+      }
+    } catch (e) {
+      console.error("Failed to load Discord server info", e);
+      document.getElementById('server-name').textContent = 'ESMI SERVER';
+    }
+  }
+
+  fetchDiscordServer();
+
+  // ==========================================
+  // APP SCROLL LOGIC & HUD DOTS
+  // ==========================================
+  const scrollContainer = document.getElementById('scroll-container');
+  const sections = document.querySelectorAll('.page-section');
+  const hudDots = document.querySelectorAll('.hud-dot');
+  const totalSections = sections.length;
+  
+  let currentIndex = 0;
+  let isAnimating = false;
+
+  function goToSection(index) {
+    if (index < 0 || index >= totalSections || isAnimating) return;
+    
+    isAnimating = true;
+    currentIndex = index;
+
+    scrollContainer.style.transform = `translateY(-${index * 100}vh)`;
+
+    sections.forEach(s => s.classList.remove('active'));
+    sections[currentIndex].classList.add('active');
+
+    hudDots.forEach(d => d.classList.remove('active'));
+    if(hudDots[currentIndex]) hudDots[currentIndex].classList.add('active');
+
+    if (index === 2) {
+      document.body.classList.add('show-member-bg');
+    } else {
+      document.body.classList.remove('show-member-bg');
+    }
+
+    setTimeout(() => { isAnimating = false; }, 1000);
+  }
+
+  window.addEventListener('wheel', (e) => {
+    if (!introOverlay.classList.contains('hide')) return;
+    e.preventDefault();
+    if (isAnimating) return;
+
+    if (e.deltaY > 30) goToSection(currentIndex + 1);
+    else if (e.deltaY < -30) goToSection(currentIndex - 1);
+  }, { passive: false });
+
+  let touchStartY = 0;
+  window.addEventListener('touchstart', (e) => { touchStartY = e.touches[0].clientY; }, { passive: false });
+
+  window.addEventListener('touchend', (e) => {
+    if (!introOverlay.classList.contains('hide') || isAnimating) return;
+    const touchEndY = e.changedTouches[0].clientY;
+    const distance = touchStartY - touchEndY;
+    if (distance > 50) goToSection(currentIndex + 1);
+    else if (distance < -50) goToSection(currentIndex - 1);
+  }, { passive: false });
+</script>
+</body>
+</html>
